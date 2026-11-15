@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -15,8 +16,13 @@ version = "0.0.1"
 
 kotlin {
     explicitApi()
-    compilerOptions {
-        allWarningsAsErrors = true
+
+    // The compilations of each platform stop on each warning. The shared metadata compilations do not: there, the
+    // KLIB loader warns about the AndroidX libraries that JetBrains and Google each publish for Compose Multiplatform.
+    targets.matching { it.platformType != KotlinPlatformType.common }.configureEach {
+        compilations.configureEach {
+            compileTaskProvider.configure { compilerOptions.allWarningsAsErrors.set(true) }
+        }
     }
 
     jvm()
@@ -41,6 +47,7 @@ kotlin {
         commonMain.dependencies {
             api(libs.compose.runtime)
             api(libs.compose.ui)
+            implementation(libs.compose.foundation)
         }
 
         commonTest.dependencies {
@@ -49,21 +56,23 @@ kotlin {
 
         jvmTest.dependencies {
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.compose.ui.test)
+            implementation(compose.desktop.currentOs)
         }
     }
 }
 
-// The language: the submodule language/ at the commit of one tag of monorithm/design.
+// The language: the submodule design/ at the commit of one tag of monorithm/design.
 language {
-    source = rootProject.layout.projectDirectory.dir("language")
-    tokens = layout.projectDirectory.file("src/commonMain/kotlin/dev/monorithm/ui/tokens/Tokens.kt")
-    packageName = "dev.monorithm.ui.tokens"
+    source = rootProject.layout.projectDirectory.dir("design")
+    tokens = layout.projectDirectory.file("src/commonMain/kotlin/dev/monorithm/ui/Tokens.kt")
+    packageName = "dev.monorithm.ui"
 }
 
-// The test of the tokens reads the pinned IR in the submodule language/.
-val languageDir: String = rootProject.layout.projectDirectory.dir("language").asFile.path
+// The test of the tokens reads the pinned IR in the submodule design/.
+val designDir: String = rootProject.layout.projectDirectory.dir("design").asFile.path
 tasks.named<Test>("jvmTest") {
-    systemProperty("monorithm.language", languageDir)
+    systemProperty("monorithm.design", designDir)
 }
 
 mavenPublishing {
