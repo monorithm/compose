@@ -1,4 +1,4 @@
-package dev.monorithm.language
+package dev.monorithm.design
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -18,9 +18,9 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.UntrackedTask
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 
-/** The settings of the plugin dev.monorithm.language. */
-public interface LanguageExtension {
-    /** The folder of the language source: the submodule design/. */
+/** The settings of the plugin dev.monorithm.design. */
+public interface DesignExtension {
+    /** The folder of the design source: the submodule design/. */
     public val source: DirectoryProperty
 
     /** The generated Kotlin file of the tokens. */
@@ -56,7 +56,7 @@ public abstract class EmitTokens : DefaultTask() {
  * the tokens differs from the output of the emitter (the drift check of CI).
  */
 @UntrackedTask(because = "The check has no output. It runs each time.")
-public abstract class CheckLanguage : DefaultTask() {
+public abstract class CheckDesign : DefaultTask() {
     @get:Internal
     public abstract val source: DirectoryProperty
 
@@ -72,34 +72,34 @@ public abstract class CheckLanguage : DefaultTask() {
         Emitter.verify(dir)
         val file = tokens.get().asFile
         if (!file.exists() || file.readText() != Emitter.emit(dir, packageName.get())) {
-            throw GradleException("checkLanguage: ${file.name} differs from the output of the emitter. Run: ./gradlew emitTokens")
+            throw GradleException("checkDesign: ${file.name} differs from the output of the emitter. Run: ./gradlew emitTokens")
         }
         logger.lifecycle(
-            "checkLanguage: the IR of language ${Emitter.version(dir)} matches its manifest, and ${file.name} matches the IR.",
+            "checkDesign: the IR of design ${Emitter.version(dir)} matches its manifest, and ${file.name} matches the IR.",
         )
     }
 }
 
-/** Adds the tasks emitTokens and checkLanguage. The task check runs checkLanguage. */
-public class LanguagePlugin : Plugin<Project> {
+/** Adds the tasks emitTokens and checkDesign. The task check runs checkDesign. */
+public class DesignPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        val language = project.extensions.create("language", LanguageExtension::class.java)
+        val design = project.extensions.create("design", DesignExtension::class.java)
         project.tasks.register("emitTokens", EmitTokens::class.java) {
-            group = "language"
-            description = "Writes the Kotlin file of the tokens from the IR of the language."
-            source.set(language.source)
-            tokens.set(language.tokens)
-            packageName.set(language.packageName)
+            group = "design"
+            description = "Writes the Kotlin file of the tokens from the IR of the design."
+            source.set(design.source)
+            tokens.set(design.tokens)
+            packageName.set(design.packageName)
         }
-        val checkLanguage = project.tasks.register("checkLanguage", CheckLanguage::class.java) {
-            group = "language"
+        val checkDesign = project.tasks.register("checkDesign", CheckDesign::class.java) {
+            group = "design"
             description = "Examines the checksums of the IR, and compares the file of the tokens with the emitter."
-            source.set(language.source)
-            tokens.set(language.tokens)
-            packageName.set(language.packageName)
+            source.set(design.source)
+            tokens.set(design.tokens)
+            packageName.set(design.packageName)
         }
         project.plugins.withType(LifecycleBasePlugin::class.java) {
-            project.tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(checkLanguage) }
+            project.tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(checkDesign) }
         }
     }
 }

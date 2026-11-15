@@ -1,6 +1,6 @@
 # CI: the checks of dev.monorithm:ui on each pull request and each push to main.
 #   wrapper   the Gradle wrapper is the official one
-#   check     the IR of the language matches its manifest, and the drift check of the generated tokens
+#   check     the IR of the design matches its manifest, and the drift check of the generated tokens
 #   analyze   Android lint. The Kotlin compilation of each platform also stops on each warning
 #   test      the tests of each target
 #   build     the library for Android, iOS, and the desktop
@@ -22,7 +22,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - name: Check out the repository and the language
+      - name: Check out the repository and the design
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -38,8 +38,8 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Check the language and the generated tokens
-        run: ./gradlew checkLanguage
+      - name: Check the design and the generated tokens
+        run: ./gradlew checkDesign
 
       - name: Analyze
         run: ./gradlew lint

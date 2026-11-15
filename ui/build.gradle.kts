@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.vanniktech.mavenPublish)
-    id("dev.monorithm.language")
+    id("dev.monorithm.design")
 }
 
 group = "dev.monorithm"
@@ -62,8 +62,8 @@ kotlin {
     }
 }
 
-// The language: the submodule design/ at the commit of one tag of monorithm/design.
-language {
+// The design: the submodule design/ at the commit of one tag of monorithm/design.
+design {
     source = rootProject.layout.projectDirectory.dir("design")
     tokens = layout.projectDirectory.file("src/commonMain/kotlin/dev/monorithm/ui/Tokens.kt")
     packageName = "dev.monorithm.ui"

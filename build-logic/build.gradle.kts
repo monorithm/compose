@@ -4,9 +4,9 @@ plugins {
 
 gradlePlugin {
     plugins {
-        register("language") {
-            id = "dev.monorithm.language"
-            implementationClass = "dev.monorithm.language.LanguagePlugin"
+        register("design") {
+            id = "dev.monorithm.design"
+            implementationClass = "dev.monorithm.design.DesignPlugin"
         }
     }
 }

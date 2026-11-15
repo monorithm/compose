@@ -40,7 +40,7 @@ class TokensTest {
 
     @Test
     fun `ir - the generated tokens have the values of the pinned IR`() {
-        assertEquals(version, LANGUAGE)
+        assertEquals(version, DESIGN_VERSION)
 
         // A color with no axis has the same value in each theme.
         val amber = color(token("color.amber.400")["value"]!!.jsonObject)

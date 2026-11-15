@@ -19,7 +19,7 @@ internal fun currentMonoTokens(): MonoTokens =
     LocalMonoTokens.current ?: MonoTokens(darkTheme = isSystemInDarkTheme(), density = platformDensity())
 
 /**
- * Gives the tokens of the language to [content]. Read them with [MonoTheme], for example `MonoTheme.color.accent`.
+ * Gives the tokens of the design to [content]. Read them with [MonoTheme], for example `MonoTheme.color.accent`.
  *
  * Each axis that you do not set keeps the context above: the MonoTheme above, or the setting of the system. With no
  * MonoTheme above, the theme is the dark setting of the system, and the density is touch on Android and iOS, and
