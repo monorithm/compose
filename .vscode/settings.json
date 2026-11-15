@@ -1,0 +1,14 @@
+{
+  "files.readonlyInclude": {
+    "ui/src/commonMain/kotlin/dev/monorithm/ui/tokens/Tokens.kt": true,
+    "language/**": true
+  },
+  "files.exclude": {
+    "**/.gradle": true,
+    "**/.kotlin": true,
+    "**/build": true
+  },
+  "search.exclude": {
+    "language/**": true
+  }
+}
