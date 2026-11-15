@@ -1,7 +1,7 @@
 # CI: the checks of dev.monorithm:ui on each pull request and each push to main.
 #   wrapper   the Gradle wrapper is the official one
 #   check     the IR of the language matches its manifest, and the drift check of the generated tokens
-#   analyze   Android lint. The Kotlin compiler also stops on each warning
+#   analyze   Android lint. The Kotlin compilation of each platform also stops on each warning
 #   test      the tests of each target
 #   build     the library for Android, iOS, and the desktop
 # The job runs on macOS, because Xcode is necessary for the iOS targets.

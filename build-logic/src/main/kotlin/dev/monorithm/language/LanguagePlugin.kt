@@ -20,7 +20,7 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 /** The settings of the plugin dev.monorithm.language. */
 public interface LanguageExtension {
-    /** The folder of the language source: the submodule language/. */
+    /** The folder of the language source: the submodule design/. */
     public val source: DirectoryProperty
 
     /** The generated Kotlin file of the tokens. */

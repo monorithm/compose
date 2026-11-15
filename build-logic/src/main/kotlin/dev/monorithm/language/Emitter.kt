@@ -1,8 +1,16 @@
 // The emitter of dev.monorithm:ui. It reads only the intermediate form (IR) of the language: ir/<version>/ of the
-// submodule language/ (monorithm/design at a tag), at the version of that checkout. It writes one Kotlin file of tokens.
+// submodule design/ (monorithm/design at a tag), at the version of that checkout. It writes one Kotlin file of tokens.
 //
-// This emitter is a stub. It writes the axes and the tokens of four types: color, dimension, duration, and number.
-// The other types (cubicBezier, fontWeight, shadow, transition) come with the components that use them.
+// The file has one class for each group of tokens: the first part of the token path (color, size, radius, and the
+// other groups). A group that changes with an axis has one instance for each context of the axis, for example
+// MonoColor.Dark and MonoColor.Light. MonoTokens selects the instances for one context of each axis, and the object
+// MonoTheme gives the tokens of the current composition.
+//
+// The axes: the axis theme is the Boolean darkTheme, as in Compose. The axis density is the enum MonoDensity. The
+// emitter stops with an error for a different axis.
+//
+// This emitter is a stub. It writes the tokens of four types: color, dimension, duration, and number. The other types
+// (cubicBezier, fontWeight, shadow, transition) come with the components that use them.
 package dev.monorithm.language
 
 import groovy.json.JsonSlurper
@@ -35,18 +43,43 @@ internal object Emitter {
         }
     }
 
-    /**
-     * The name of a token in lowerCamelCase: color.role.accent-fg gives roleAccentFg in MonoColors. If the first part
-     * of the path is the name of the type (color, duration), the name does not include it.
-     */
-    fun memberName(path: String, type: String): String {
-        val parts = path.split('.')
-        val words = (if (parts.first() == type) parts.drop(1) else parts).flatMap { it.split('-') }
-        return words.first() + words.drop(1).joinToString("") { pascal(it) }
-    }
+    /** The types of the stub. */
+    private val types = setOf("color", "dimension", "duration", "number")
 
-    private fun pascal(s: String): String =
-        s.split('-').joinToString("") { w -> w.replaceFirstChar { it.uppercaseChar() } }
+    /** The Kotlin words that cannot be a member name. */
+    private val reserved = setOf(
+        "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null",
+        "object", "package", "return", "super", "this", "throw", "true", "try", "typealias", "typeof", "val", "var",
+        "when", "while", "tokens",
+    )
+
+    private fun words(parts: List<String>): List<String> = parts.flatMap { it.split('-') }
+
+    private fun pascal(words: List<String>): String =
+        words.joinToString("") { w -> w.replaceFirstChar { it.uppercaseChar() } }
+
+    private fun camel(words: List<String>): String = words.first() + pascal(words.drop(1))
+
+    /** The group of a token: the first part of its path, for example font-size. */
+    fun groupOf(path: String): String = path.substringBefore('.')
+
+    /** The name of the class of a group: font-size gives MonoFontSize. */
+    fun groupClass(group: String): String = "Mono${pascal(words(listOf(group)))}"
+
+    /** The name of the property of a group: font-size gives fontSize. */
+    fun groupProperty(group: String): String = camel(words(listOf(group)))
+
+    /**
+     * The name of a token in its group, in lowerCamelCase: size.control-md gives controlMd. In the group color, the
+     * colors of the roles have no prefix: color.role.accent-fg gives accentFg. A name that starts with a digit gets
+     * the prefix x: space.4 gives x4.
+     */
+    fun memberName(path: String): String {
+        var parts = path.split('.').drop(1)
+        if (groupOf(path) == "color" && parts.first() == "role") parts = parts.drop(1)
+        val name = camel(words(parts))
+        return if (name.first().isDigit()) "x$name" else name
+    }
 
     /** A Kotlin literal of a number: an Int if the value has no fraction. */
     private fun number(v: Number): String {
@@ -78,29 +111,78 @@ internal object Emitter {
         else -> error("The stub does not emit the type $type")
     }
 
-    /** The objects of the four types, in the order of the file. */
-    private val objects = linkedMapOf(
-        "color" to ("MonoColors" to "The color tokens."),
-        "dimension" to ("MonoDimensions" to "The dimension tokens, in dp."),
-        "duration" to ("MonoDurations" to "The duration tokens."),
-        "number" to ("MonoNumbers" to "The number tokens: the opacities and the scales."),
-    )
+    /** An axis in Kotlin: the type and the property of MonoTokens, and the Kotlin value of a context. */
+    private class Axis(val contexts: List<String>, val fallback: String, val type: String, val property: String, val value: (String) -> String)
+
+    private fun axis(name: String, contexts: List<String>, fallback: String): Axis = when (name) {
+        "theme" -> {
+            check(contexts.toSet() == setOf("dark", "light")) { "darkTheme has no context ${contexts.joinToString()}" }
+            Axis(contexts, fallback, "Boolean", "darkTheme") { if (it == "dark") "true" else "false" }
+        }
+        "density" -> Axis(contexts, fallback, "MonoDensity", "density") { "MonoDensity.${pascal(listOf(it))}" }
+        else -> error("The emitter does not know the axis $name")
+    }
+
+    /** One token of a group. A token with no axis has one value with the key "". */
+    private class Token(val path: String, val name: String, val type: String, val description: String?, val axis: String?, val values: Map<String, String>)
 
     /** The text of the generated file. */
     @Suppress("UNCHECKED_CAST")
     fun emit(source: File, packageName: String): String {
         val dir = irDir(source)
         val canonical = json(dir.resolve("canonical.json")) as Map<String, Map<String, Any?>>
-        val axes = json(dir.resolve("axes.json")) as Map<String, Map<String, Any?>>
+        val axes = (json(dir.resolve("axes.json")) as Map<String, Map<String, Any?>>).mapValues { (name, a) ->
+            axis(name, a["contexts"] as List<String>, a["default"] as String)
+        }
+
+        // The tokens of the four types, by group, in the order of the IR.
+        val groups = linkedMapOf<String, MutableList<Token>>()
+        for ((path, e) in canonical) {
+            val type = e["type"] as String
+            if (type !in types) continue
+            val tokenAxes = e["axes"] as List<String>? ?: emptyList()
+            check(tokenAxes.size <= 1) {
+                "$path changes with ${tokenAxes.joinToString(" and ")}: the emitter knows one axis for each token"
+            }
+            // A key of values is <axis>=<context>, for example theme=dark.
+            val values = if (tokenAxes.isEmpty()) {
+                mapOf("" to value(type, e["value"]))
+            } else {
+                (e["values"] as Map<String, Any?>).entries.associate { (k, v) -> k.substringAfter('=') to value(type, v) }
+            }
+            val name = memberName(path)
+            check(name !in reserved) { "The name $name of $path is a word of Kotlin" }
+            groups.getOrPut(groupOf(path)) { mutableListOf() } += Token(
+                path = path,
+                name = name,
+                type = values.values.first().first,
+                description = (e["description"] as String?)?.trim()?.replace(Regex("\\s+"), " "),
+                axis = tokenAxes.singleOrNull(),
+                values = values.mapValues { it.value.second },
+            )
+        }
+
+        // The axis of each group. A group has a maximum of one axis.
+        val groupAxis = groups.mapValues { (group, tokens) ->
+            val used = tokens.mapNotNull { it.axis }.toSet()
+            check(used.size <= 1) {
+                "The group $group changes with ${used.joinToString(" and ")}: the emitter knows one axis for each group"
+            }
+            check(tokens.map { it.name }.toSet().size == tokens.size) { "Two tokens of the group $group have the same name" }
+            used.firstOrNull()
+        }
+
         val language = json(dir.resolve("manifest.json"))["language"] as String
         val out = StringBuilder()
         fun line(s: String = "") = out.append(s).append('\n')
 
-        line("// Generated by the task emitTokens from language/ir/$language/. Do not edit: change the language source.")
+        line("// Generated by the task emitTokens from design/ir/$language/. Do not edit: change the language source.")
         line()
         line("package $packageName")
         line()
+        line("import androidx.compose.runtime.Composable")
         line("import androidx.compose.runtime.Immutable")
+        line("import androidx.compose.runtime.ReadOnlyComposable")
         line("import androidx.compose.ui.graphics.Color")
         line("import androidx.compose.ui.unit.Dp")
         line("import androidx.compose.ui.unit.dp")
@@ -109,57 +191,92 @@ internal object Emitter {
         line()
         line("/** The language version of these tokens. */")
         line("public const val LANGUAGE: String = \"$language\"")
+        line()
+        val density = axes.getValue("density")
+        line("/** The contexts of the axis density. The fallback is ${pascal(listOf(density.fallback))}. */")
+        line("public enum class MonoDensity { ${density.contexts.joinToString(", ") { pascal(listOf(it)) }} }")
 
-        // The axes: an enum of the contexts, and a class with one value for each context.
-        for ((axis, a) in axes) {
-            val contexts = a["contexts"] as List<String>
-            val name = pascal(axis)
+        // The expression that selects the instance of a group for the context of each axis.
+        fun select(group: String): String {
+            val cls = groupClass(group)
+            val a = groupAxis[group]?.let { axes.getValue(it) } ?: return "$cls.Standard"
+            return if (a.property == "darkTheme") {
+                "if (darkTheme) $cls.Dark else $cls.Light"
+            } else {
+                "when (${a.property}) { ${a.contexts.joinToString("; ") { "${a.value(it)} -> $cls.${pascal(listOf(it))}" }} }"
+            }
+        }
+        fun about(group: String): String = groupAxis[group]?.let { "The tokens $group.* for the context of the axis $it." }
+            ?: "The tokens $group.*. They do not change with an axis."
+
+        // MonoTokens: the instances of the groups for one context of each axis.
+        line()
+        line("/**")
+        line(" * The tokens for one context of each axis: the theme ([darkTheme]) and the [density].")
+        line(" *")
+        line(" * Get the tokens of the current composition with [MonoTheme], for example `MonoTheme.color.accent`.")
+        line(" */")
+        line("@Immutable")
+        line("public class MonoTokens(")
+        for ((name, a) in axes) {
+            line("    /** The context of the axis $name. The fallback is ${a.fallback}. */")
+            line("    public val ${a.property}: ${a.type} = ${a.value(a.fallback)},")
+        }
+        line(") {")
+        for (group in groups.keys) {
+            line("    /** ${about(group)} */")
+            line("    public val ${groupProperty(group)}: ${groupClass(group)} get() = ${select(group)}")
             line()
-            line("/** The contexts of the axis $axis. The fallback is ${a["default"]}. */")
-            line("public enum class Mono$name { ${contexts.joinToString(", ") { pascal(it) }} }")
+        }
+        line("    override fun equals(other: Any?): Boolean =")
+        line("        other is MonoTokens && ${axes.values.joinToString(" && ") { "other.${it.property} == ${it.property}" }}")
+        line()
+        line("    override fun hashCode(): Int = ${axes.values.joinToString(" * 31 + ") { "${it.property}.hashCode()" }}")
+        line("}")
+
+        // MonoTheme: the tokens of the current composition. The composable function MonoTheme sets the axes.
+        line()
+        line("/** The tokens of the language for the current composition. The composable function MonoTheme sets the axes. */")
+        line("public object MonoTheme {")
+        line("    /** The tokens for the context of each axis. */")
+        line("    public val tokens: MonoTokens")
+        line("        @Composable @ReadOnlyComposable get() = currentMonoTokens()")
+        for (group in groups.keys) {
             line()
-            line("/** A value for each context of the axis $axis. */")
+            line("    /** ${about(group)} */")
+            line("    public val ${groupProperty(group)}: ${groupClass(group)}")
+            line("        @Composable @ReadOnlyComposable get() = currentMonoTokens().${groupProperty(group)}")
+        }
+        line("}")
+
+        // One class for each group, with one instance for each context of its axis.
+        for ((group, tokens) in groups) {
+            val cls = groupClass(group)
+            val axis = groupAxis[group]
+            val instances = axis?.let { axes.getValue(it).contexts } ?: listOf("standard")
+            line()
+            line(
+                if (axis == null) "/** The tokens $group.*. They do not change with an axis. */"
+                else "/** The tokens $group.*, with one instance for each context of the axis $axis. */",
+            )
             line("@Immutable")
-            line("public class By$name<out T>(")
-            for (c in contexts) {
-                line("    /** The value of the context $c. */")
-                line("    public val $c: T,")
+            line("public class $cls private constructor(")
+            for (t in tokens) {
+                line(if (t.description == null) "    /** The token ${t.path}. */" else "    /** ${t.path}: ${t.description} */")
+                line("    public val ${t.name}: ${t.type},")
             }
             line(") {")
-            line("    /** The value of the context [context]. */")
-            line("    public fun of(context: Mono$name): T = when (context) {")
-            for (c in contexts) line("        Mono$name.${pascal(c)} -> $c")
-            line("    }")
-            line("}")
-        }
-
-        // The tokens: one object for each type.
-        for ((type, o) in objects) {
-            val (obj, doc) = o
-            line()
-            line("/** $doc */")
-            line("public object $obj {")
-            for ((path, e) in canonical) {
-                if (e["type"] != type) continue
-                val description = (e["description"] as String?)?.trim()?.replace(Regex("\\s+"), " ")
-                line(if (description == null) "    /** The token $path. */" else "    /** $path: $description */")
-                val tokenAxes = e["axes"] as List<String>?
-                if (tokenAxes == null) {
-                    val (t, v) = value(type, e["value"])
-                    val const = if (type == "number") "const " else ""
-                    line("    public ${const}val ${memberName(path, type)}: $t = $v")
-                    continue
-                }
-                check(tokenAxes.size == 1) {
-                    "$path changes with ${tokenAxes.joinToString(" and ")}: the emitter knows one axis for each token"
-                }
-                val axis = pascal(tokenAxes.single())
-                // A key of values is <axis>=<context>, for example theme=dark.
-                val pairs = (e["values"] as Map<String, Any?>).map { (k, v) -> k.substringAfter('=') to value(type, v) }
-                val t = pairs.first().second.first
-                val args = pairs.joinToString(", ") { (c, v) -> "$c = ${v.second}" }
-                line("    public val ${memberName(path, type)}: By$axis<$t> = By$axis($args)")
+            line("    public companion object {")
+            for ((i, instance) in instances.withIndex()) {
+                if (i > 0) line()
+                line(
+                    if (axis == null) "        /** The values of the tokens. */"
+                    else "        /** The values for the context $instance of the axis $axis. */",
+                )
+                val args = tokens.joinToString(", ") { t -> "${t.name} = ${t.values.getValue(if (t.axis == null) "" else instance)}" }
+                line("        public val ${pascal(listOf(instance))}: $cls = $cls($args)")
             }
+            line("    }")
             line("}")
         }
         return out.toString()

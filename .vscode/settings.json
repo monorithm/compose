@@ -1,7 +1,7 @@
 {
   "files.readonlyInclude": {
-    "ui/src/commonMain/kotlin/dev/monorithm/ui/tokens/Tokens.kt": true,
-    "language/**": true
+    "ui/src/commonMain/kotlin/dev/monorithm/ui/Tokens.kt": true,
+    "design/**": true
   },
   "files.exclude": {
     "**/.gradle": true,
@@ -9,6 +9,6 @@
     "**/build": true
   },
   "search.exclude": {
-    "language/**": true
+    "design/**": true
   }
 }

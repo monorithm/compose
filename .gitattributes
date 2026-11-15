@@ -1,4 +1,4 @@
 * text=auto eol=lf
 *.bat text eol=crlf
 *.jar binary
-/ui/src/commonMain/kotlin/dev/monorithm/ui/tokens/Tokens.kt linguist-generated=true
+/ui/src/commonMain/kotlin/dev/monorithm/ui/Tokens.kt linguist-generated=true
