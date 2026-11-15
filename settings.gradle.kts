@@ -1,5 +1,5 @@
 pluginManagement {
-    // The build logic of the language: the emitter of the tokens and the check of the IR.
+    // The build logic of the design: the emitter of the tokens and the check of the IR.
     includeBuild("build-logic")
     repositories {
         google()

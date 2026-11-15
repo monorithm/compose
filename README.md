@@ -1,14 +1,14 @@
 # dev.monorithm:ui
 
-The Compose Multiplatform library of the Monorithm Experience Language. It will give the components of the language as composables for Android, iOS, and the desktop, with the tokens of the language.
+The Compose Multiplatform library of the Monorithm Experience Language. It will give the components of the design as composables for Android, iOS, and the desktop, with the tokens of the design.
 
-At this time the library is a skeleton. It has the tokens of language 0.4.0, the composable `MonoTheme`, and no components. The 20 components of version 1 follow in the order of the list in `monorithm/design` (`contracts/v1-components.md`).
+At this time the library is a skeleton. It has the tokens of design 0.4.0, the composable `MonoTheme`, and no components. The 20 components of version 1 follow in the order of the list in `monorithm/design` (`contracts/v1-components.md`).
 
 ## Use the library
 
 The library is not on Maven Central at this time. An app can use it through a Gradle composite build:
 
-1. Clone the repository with the language source: `git clone --recurse-submodules https://github.com/monorithm/compose.git`.
+1. Clone the repository with the design source: `git clone --recurse-submodules https://github.com/monorithm/compose.git`.
 2. In `settings.gradle.kts` of the app, include the build: `includeBuild("../compose")`.
 3. In the source set `commonMain` of the app, add the dependency `implementation("dev.monorithm:ui:0.0.1")`. Gradle replaces it with the module `ui` of the included build.
 4. Read the tokens with `MonoTheme`, as you read the values of `MaterialTheme`:
@@ -34,7 +34,7 @@ fun Field() {
 }
 ```
 
-The language has two axes: the theme (dark or light) and the density (pointer or touch). `MonoTheme` gives the tokens for the context of each axis:
+The design has two axes: the theme (dark or light) and the density (pointer or touch). `MonoTheme` gives the tokens for the context of each axis:
 
 - The theme is the dark setting of the system (`isSystemInDarkTheme()`).
 - The density is touch on Android and iOS, and pointer on the desktop.
@@ -53,22 +53,22 @@ The tokens are in groups: `color`, `size`, `radius`, `space`, `fontSize`, `focus
 
 Outside a composable, use the instance of a context, for example `MonoColor.Dark.accent` or `MonoSize.Touch.controlMd`.
 
-## How the library gets the language
+## How the library gets the design
 
-The language source is the git submodule `design/`. It is `github.com/monorithm/design` at the commit of one tag, for example `v0.4.0`. The emitter reads `design/ir/<version>/`. The version is the version in `design/package.json`.
+The design source is the git submodule `design/`. It is `github.com/monorithm/design` at the commit of one tag, for example `v0.4.0`. The emitter reads `design/ir/<version>/`. The version is the version in `design/package.json`.
 
 | Step | Command | Result |
 | --- | --- | --- |
-| Get the language | `git submodule update --init` | Checks out the pinned commit of the language source |
+| Get the design | `git submodule update --init` | Checks out the pinned commit of the design source |
 | Change the version | `git -C design fetch --tags`, then `git -C design checkout v<version>`, then `git add design` | Pins the commit of that tag |
 | Emit | `./gradlew emitTokens` | Writes `ui/src/commonMain/kotlin/dev/monorithm/ui/Tokens.kt` from `ir/<version>/` |
-| Drift check | `./gradlew checkLanguage` | Stops with an error if a file of the IR does not match its checksum in the manifest. Also stops if the generated file differs from the output of the emitter. The task `check` also runs it |
+| Drift check | `./gradlew checkDesign` | Stops with an error if a file of the IR does not match its checksum in the manifest. Also stops if the generated file differs from the output of the emitter. The task `check` also runs it |
 
 Run `emitTokens` in a build of its own: the compile tasks read the file that it writes.
 
-Do not edit the generated file. Change the language source in `monorithm/design`, tag a version, then change the version here and emit again.
+Do not edit the generated file. Change the design source in `monorithm/design`, tag a version, then change the version here and emit again.
 
-The emitter writes one class for each group, with one instance for each context of the axis of the group. `MonoTokens` selects the instances for one context of each axis, and the object `MonoTheme` gives the tokens of the current composition. The emitter is a stub at this time. It writes the tokens of four types: the colors, the dimensions (in dp), the durations, and the numbers. The other types of the IR come with the components that use them: the cubic Bézier curves, the font weights, the shadows, and the transitions. The emitter and the check are in `build-logic/`, in the Gradle plugin `dev.monorithm.language`.
+The emitter writes one class for each group, with one instance for each context of the axis of the group. `MonoTokens` selects the instances for one context of each axis, and the object `MonoTheme` gives the tokens of the current composition. The emitter is a stub at this time. It writes the tokens of four types: the colors, the dimensions (in dp), the durations, and the numbers. The other types of the IR come with the components that use them: the cubic Bézier curves, the font weights, the shadows, and the transitions. The emitter and the check are in `build-logic/`, in the Gradle plugin `dev.monorithm.design`.
 
 ## The layout of the source
 
@@ -79,8 +79,8 @@ The emitter writes one class for each group, with one instance for each context 
 | `ui/src/commonMain/kotlin/dev/monorithm/ui/MonoTheme.kt` | The composable `MonoTheme` |
 | `ui/src/<platform>Main/kotlin/dev/monorithm/ui/` | The density of each platform |
 | `ui/src/commonTest/`, `ui/src/jvmTest/` | The tests |
-| `build-logic/` | The Gradle plugin of the language: the emitter and the check of the IR |
-| `design/` | The submodule of the language source |
+| `build-logic/` | The Gradle plugin of the design: the emitter and the check of the IR |
+| `design/` | The submodule of the design source |
 | `gradle/libs.versions.toml` | The versions of the plugins and the libraries |
 
 ## The targets
@@ -108,7 +108,7 @@ On the JVM, a test name cannot have a slash. Thus each test class has the name o
 CI runs on macOS, because Xcode is necessary for the iOS targets. It does these steps on each pull request and on each push to `main`:
 
 1. The validation of the Gradle wrapper.
-2. The drift check: `./gradlew checkLanguage`.
+2. The drift check: `./gradlew checkDesign`.
 3. The analysis: `./gradlew lint`. The Kotlin compilation of each platform also stops on each warning.
 4. The tests: `./gradlew allTests`.
 5. The build of the library for each target: `./gradlew assemble`.
